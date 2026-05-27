@@ -1,6 +1,46 @@
+# ── Python ────────────────────────────────────────────────────────────────
 venv/
 __pycache__/
-.DS_Store
-blueprint.json
-export.obj
 *.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# ── Runtime / generated ───────────────────────────────────────────────────
+# MediaPipe model — downloaded automatically by run.sh
+hand_landmarker.task
+
+# Whisper model cache
+~/.cache/huggingface/
+
+# Blueprint saves (user-specific scene state)
+blueprint.json
+
+# OBJ exports from the E key
+export.obj
+exports/
+
+# Screenshots from the P key
+vertex_*.png
+screenshots/
+
+# ── OS ────────────────────────────────────────────────────────────────────
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+
+# ── IDE ───────────────────────────────────────────────────────────────────
+.cursor/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Logs / debug ──────────────────────────────────────────────────────────
+*.log
+.cursor/debug-*.log
