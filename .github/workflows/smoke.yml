@@ -21,6 +21,7 @@ jobs:
 
       - name: Headless smoke test
         run: |
+          export PYTHONPATH=src
           python - <<'EOF'
           # Config
           from config import Config
@@ -50,15 +51,15 @@ jobs:
           # Gesture engine
           from gesture_engine import GestureEngine, GestureMode
           e = GestureEngine()
-          assert GestureMode.ORBIT != GestureMode.PAN != GestureMode.SCALE
+          assert GestureMode.ORBIT != GestureMode.ZOOM
 
           # OBJ parser
           from utils import parse_obj_content, load_obj
-          verts, faces = parse_obj_content("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n")
+          verts, faces, face_colours = parse_obj_content("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n")
           assert len(verts) == 3 and len(faces) == 1, "obj parse"
 
           # OBJ quad fan-triangulation
-          verts2, faces2 = parse_obj_content("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nf 1 2 3 4\n")
+          verts2, faces2, _ = parse_obj_content("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nf 1 2 3 4\n")
           assert len(faces2) == 2, "quad fan-triangulation"
 
           # Sketch

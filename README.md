@@ -154,22 +154,22 @@ Large meshes are automatically decimated to a maximum of 80,000 faces for real-t
 
 ## Hand distance filtering
 
-Hands that are too far from the camera (palm occupying less than ~35 pixels on the sensor feed) are ignored — no gesture fires, and the sensor PiP displays a red `FAR` marker. The threshold is adjustable in `config.json` under `hand_sensor.min_palm_px` without any code change.
+Hands that are too far from the camera (palm occupying less than ~35 pixels on the sensor feed) are ignored — no gesture fires, and the sensor PiP displays a red `FAR` marker. The threshold is adjustable in `src/config.json` under `hand_sensor.min_palm_px` without any code change.
 
 ---
 
 ## Architecture
 
 ```
-main.py ──┬── scene.py          Scene graph, Hologram state, animation ticks
-          ├── renderer.py        OpenGL pipeline, multi-pass additive glow, display-list mesh cache
-          ├── hud.py             JARVIS HUD — brackets, readouts, toasts, mode indicators
-          ├── vision.py          MediaPipe hand sensor, palm-distance filter, gesture data
-          ├── gesture_engine.py  Debounced gesture state machine
-          ├── sketch.py          Modal pinch-annotation controller
-          ├── voice.py           faster-whisper PTT, fuzzy grammar dispatch
-          ├── shapes.py          Primitives, animated hero shapes, OBJ display-list renderer
-          └── utils.py           OBJ parser (with MTL colours, decimation), blueprint I/O
+src/main.py ──┬── src/scene.py          Scene graph, Hologram state, animation ticks
+              ├── src/renderer.py        OpenGL pipeline, multi-pass additive glow, display-list mesh cache
+              ├── src/hud.py             JARVIS HUD — brackets, readouts, toasts, mode indicators
+              ├── src/vision.py          MediaPipe hand sensor, palm-distance filter, gesture data
+              ├── src/gesture_engine.py  Debounced gesture state machine
+              ├── src/sketch.py          Modal pinch-annotation controller
+              ├── src/voice.py           faster-whisper PTT, fuzzy grammar dispatch
+              ├── src/shapes.py          Primitives, animated hero shapes, OBJ display-list renderer
+              └── src/utils.py           OBJ parser (with MTL colours, decimation), blueprint I/O
 ```
 
 ---

@@ -23,13 +23,13 @@ echo >> Syncing dependencies...
 %VENV_PYTHON% -m pip install -q -r requirements.txt
 
 REM Download MediaPipe hand landmarker model if missing
-if not exist hand_landmarker.task (
+if not exist src\hand_landmarker.task (
     echo >> Downloading MediaPipe hand landmarker model...
-    curl -L -o hand_landmarker.task ^
+    curl -L -o src\hand_landmarker.task ^
       https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task
 )
 
 if not exist models mkdir models
 
 echo >> Launching application...
-%VENV_PYTHON% main.py %*
+%VENV_PYTHON% src\main.py %*

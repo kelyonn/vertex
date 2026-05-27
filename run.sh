@@ -32,9 +32,9 @@ echo ">> Syncing dependencies..."
 "$VENV_PYTHON" -m pip install -q -r requirements.txt
 
 # Download MediaPipe hand landmarker model if missing
-if [ ! -f "hand_landmarker.task" ]; then
+if [ ! -f "src/hand_landmarker.task" ]; then
     echo ">> Downloading MediaPipe hand landmarker model..."
-    curl -L -o hand_landmarker.task \
+    curl -L -o src/hand_landmarker.task \
       https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task
 fi
 
@@ -42,6 +42,6 @@ fi
 mkdir -p models
 
 echo ">> Launching application..."
-"$VENV_PYTHON" main.py "$@"
+"$VENV_PYTHON" src/main.py "$@"
 
 echo ">> Shutdown complete."

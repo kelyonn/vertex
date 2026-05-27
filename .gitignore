@@ -12,6 +12,7 @@ build/
 # ── Runtime / generated ───────────────────────────────────────────────────
 # MediaPipe model — downloaded automatically by run.sh
 hand_landmarker.task
+src/hand_landmarker.task
 
 # Whisper model cache
 ~/.cache/huggingface/
