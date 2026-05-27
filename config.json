@@ -12,57 +12,29 @@
         "zoom_max": -2
     },
     "controls": {
-        "rotation_sensitivity": 0.5,
-        "zoom_sensitivity": 0.1,
-        "smoothing_factor": 0.1,
-        "pinch_threshold": 40,
-        "zoom_base_distance": 200,
-        "zoom_exponent": 1.5,
-        "rotation_velocity_multiplier": 0.3,
-        "swipe_enabled": true,
-        "fist_enabled": true,
-        "pointing_enabled": true
+        "rotation_sensitivity": 0.75,
+        "smoothing_factor": 0.12
     },
     "rendering": {
         "wireframe": false,
         "show_grid": true,
-        "show_axes": true,
+        "show_axes": false,
         "show_hud": true,
-        "background_color": [
-            0.05,
-            0.05,
-            0.1,
-            1.0
-        ],
-        "shape_color": [
-            0.0,
-            1.0,
-            1.0
-        ],
-        "grid_color": [
-            0.3,
-            0.3,
-            0.3
-        ],
-        "axes_color": [
-            1.0,
-            1.0,
-            1.0
-        ]
+        "shape_scale": 1.0
     },
     "hand_sensor": {
         "detection_confidence": 0.7,
-        "tracking_confidence": 0.7
+        "tracking_confidence": 0.7,
+        "min_palm_px": 35
     },
-    "shapes": {
-        "default": "cube",
-        "available": [
-            "cube",
-            "pyramid",
-            "sphere",
-            "cylinder",
-            "torus",
-            "octahedron"
-        ]
+    "scene": {
+        "default": "arc_reactor",
+        "startup_demo": false
+    },
+    "voice": {
+        "enabled": true,
+        "wake_word": "",
+        "audio_feedback": false,
+        "whisper_model": "tiny.en"
     }
 }
