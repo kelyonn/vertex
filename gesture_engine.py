@@ -1,50 +1,53 @@
 """
-Gesture Engine — finger-count based mode state machine for Project Vertex.
+Gesture Engine — Tight-5 state machine for Project Vertex v4.
 
-Maps a hand's landmark list to one of the GestureMode values, and tracks
-fist-hold timing so the reset gesture fires exactly once per hold.
+Modes:
+  ORBIT  (1 finger) — index up, pinch+drag to rotate
+  PAN    (5 fingers) — open palm, move to pan
+  SCALE  (0 fingers / fist) — vertical drag to scale; hold 1s = RESET
+  ZOOM   (two-hand override, set externally)
+  NONE   — dead zone (2-4 fingers) or no hand
+
+Dead zone at 2-4 fingers prevents mode flicker when transitioning
+between 1-finger ORBIT and 5-finger PAN.
 """
 import time
 from enum import Enum, auto
+from collections import Counter
 
 
 class GestureMode(Enum):
-    NONE   = auto()   # fist or unrecognised
-    ROTATE = auto()   # 1 finger  — index up,  pinch+drag to orbit
-    PAN    = auto()   # 2 fingers — peace sign, move to pan
-    COLOR  = auto()   # 3 fingers — wave left/right to cycle palette
-    SCALE  = auto()   # 4 fingers — move up/down to rescale
-    SHAPE  = auto()   # 5 fingers — open palm, wave to cycle shapes
-    ZOOM   = auto()   # two-hand override (set externally)
+    NONE   = auto()   # no hand / fist
+    ORBIT  = auto()   # 1 finger — free drag = orbit, pinch+drag = pan
+    ZOOM   = auto()   # two-hand override
 
 
-# (display label, RGB color) for each mode
+# Display label + RGB
 MODE_META = {
-    GestureMode.NONE:   ("FIST — hold to RESET", (180, 180, 180)),
-    GestureMode.ROTATE: ("1 FNG — ORBIT",         (  0, 220, 220)),
-    GestureMode.PAN:    ("2 FNG — PAN",            (100, 220, 100)),
-    GestureMode.COLOR:  ("3 FNG — COLOR",          (220, 100, 220)),
-    GestureMode.SCALE:  ("4 FNG — SCALE",          (220, 180,  60)),
-    GestureMode.SHAPE:  ("5 FNG — SHAPE",          ( 60, 160, 255)),
-    GestureMode.ZOOM:   ("2 HANDS — ZOOM",         (255, 140,  30)),
+    GestureMode.NONE:  ("---",         (100, 100, 100)),
+    GestureMode.ORBIT: ("1F — ACTIVE", (  0, 210, 255)),
+    GestureMode.ZOOM:  ("2H — ZOOM",   (  0, 210, 255)),
 }
 
-# Full gesture guide text shown in the HUD panel
 GESTURE_GUIDE = [
-    ("Fist (hold 0.8s)", "Reset camera"),
-    ("1 finger + pinch", "Orbit / Rotate"),
-    ("2 fingers",        "Pan view"),
-    ("3 fingers + wave", "Cycle colour"),
-    ("4 fingers",        "Scale shape"),
-    ("5 fingers + wave", "Cycle shape"),
-    ("2 hands open",     "Zoom"),
+    ("1 finger pinch+drag", "Orbit / Rotate"),
+    ("1 finger drag",       "Move position"),
+    ("Fist hold (1s)",      "Reset view"),
+    ("2 hands apart",       "Zoom in/out"),
+    ("+/-  keys",           "Scale up/down"),
 ]
+
+# Finger count → mode  (0 = fist reset-only, 2-5 = dead zone except zoom)
+_FINGER_MODE_MAP = {
+    1: GestureMode.ORBIT,
+}
 
 
 class GestureEngine:
-    """Pure-logic gesture recognizer — no drawing, no OpenCV."""
+    """Stateful gesture recognizer — no drawing, no OpenCV."""
 
-    FIST_HOLD_SECONDS = 0.8
+    FIST_HOLD_SECONDS = 1.0
+    DEBOUNCE_FRAMES   = 4    # new mode must be stable this many frames
 
     def __init__(self):
         self._hold_gesture: dict[str, str]   = {}
@@ -55,119 +58,87 @@ class GestureEngine:
     # Public API
     # ------------------------------------------------------------------
 
-    def get_mode(self, hand_id: str, lm_list: list) -> "GestureMode":
-        """Return the smoothed GestureMode for a single hand."""
-        n = self.count_extended_fingers(lm_list)
-        raw_mode = _FINGER_MODE_MAP.get(n, GestureMode.NONE)
+    def get_mode(self, hand_id: str, lm_list: list) -> GestureMode:
+        """Return the debounced GestureMode for a single hand."""
+        n    = self.count_extended_fingers(lm_list)
+        raw  = _FINGER_MODE_MAP.get(n, GestureMode.NONE)
 
         hist = self._mode_history.setdefault(hand_id, [])
-        hist.append(raw_mode)
-        if len(hist) > 7:
+        hist.append(raw)
+        if len(hist) > self.DEBOUNCE_FRAMES + 3:
             hist.pop(0)
 
-        # Return the most common mode in the recent history
-        from collections import Counter
-        most_common = Counter(hist).most_common(1)[0][0]
-        return most_common
+        # Only commit if mode is dominant in the last DEBOUNCE_FRAMES frames
+        recent = hist[-self.DEBOUNCE_FRAMES:]
+        cnt = Counter(recent)
+        dominant, votes = cnt.most_common(1)[0]
+        if votes >= self.DEBOUNCE_FRAMES - 1:
+            return dominant
+        # While transitioning, hold the previous committed mode
+        return hist[-self.DEBOUNCE_FRAMES] if len(hist) >= self.DEBOUNCE_FRAMES else GestureMode.NONE
 
     def check_fist_reset(self, hand_id: str, lm_list: list, now: float) -> bool:
-        """Return True exactly once when fist held >= FIST_HOLD_SECONDS.
-        Resets internal timer so it won't re-fire until fist is released."""
+        """Return True exactly once when fist is held ≥ FIST_HOLD_SECONDS."""
         is_fist = self.count_extended_fingers(lm_list) == 0
-
         if is_fist:
             if self._hold_gesture.get(hand_id) == "fist":
                 elapsed = now - self._hold_start.get(hand_id, now)
                 if elapsed >= self.FIST_HOLD_SECONDS:
-                    # Push start far into future so we don't fire again
-                    self._hold_start[hand_id] = now + 9_999
+                    self._hold_start[hand_id] = now + 99_999
                     return True
             else:
                 self._hold_gesture[hand_id] = "fist"
-                self._hold_start[hand_id] = now
+                self._hold_start[hand_id]   = now
         else:
             self._hold_gesture.pop(hand_id, None)
             self._hold_start.pop(hand_id, None)
-
         return False
 
     def fist_hold_progress(self, hand_id: str, now: float) -> float:
-        """0.0→1.0 progress toward fist-reset (for the progress ring in UI)."""
+        """0→1 progress toward fist-reset (used to draw the radial arc)."""
         if self._hold_gesture.get(hand_id) != "fist":
             return 0.0
         elapsed = now - self._hold_start.get(hand_id, now)
         return min(elapsed / self.FIST_HOLD_SECONDS, 1.0)
 
     # ------------------------------------------------------------------
-    # Finger counting
+    # Finger counting — vector dot-product method (perspective-robust)
     # ------------------------------------------------------------------
 
     def count_extended_fingers(self, lm_list: list) -> int:
-        """Count extended fingers (0-5) from a 21-point MediaPipe landmark list.
-
-        Uses robust vector mathematics. A finger is extended if it points
-        away from the palm (dot product > 0). This is immune to perspective
-        distortion, foreshortening, and rotation.
-        """
+        """Count extended fingers (0-5) from a 21-point MediaPipe landmark list."""
         if not lm_list or len(lm_list) < 21:
             return 0
 
         def pt(i):
             return (lm_list[i][1], lm_list[i][2])
-            
-        def dist(p1, p2):
+
+        def dist_sq(p1, p2):
             return (p1[0]-p2[0])**2 + (p1[1]-p2[1])**2
-            
+
         def sub(p1, p2):
             return (p1[0]-p2[0], p1[1]-p2[1])
-            
+
         def dot(v1, v2):
             return v1[0]*v2[0] + v1[1]*v2[1]
 
         count = 0
 
-        # ---- THUMB ----
-        # Thumb is extended if its TIP (4) is further from the Pinky Base (17) 
-        # than its middle joint (3) is.
-        if dist(pt(4), pt(17)) > dist(pt(3), pt(17)):
+        # Thumb: tip (4) further from pinky base (17) than joint (3)
+        if dist_sq(pt(4), pt(17)) > dist_sq(pt(3), pt(17)):
             count += 1
 
-        # ---- FOUR FINGERS ----
-        # A finger is extended if the vector from its PIP to its TIP points in the 
-        # same general direction as the vector from the WRIST to its MCP.
-        # When curled, the TIP points back towards the wrist, making the dot product negative.
-        fingers = [
-            (5, 6, 8),   # Index:  MCP=5, PIP=6, TIP=8
-            (9, 10, 12), # Middle: MCP=9, PIP=10, TIP=12
-            (13, 14, 16),# Ring:   MCP=13, PIP=14, TIP=16
-            (17, 18, 20) # Pinky:  MCP=17, PIP=18, TIP=20
-        ]
-        
-        for mcp, pip, tip in fingers:
-            palm_vec = sub(pt(mcp), pt(0))
-            tip_vec  = sub(pt(tip), pt(pip))
-            
-            # If the vectors are in the same hemisphere, the finger is relatively straight.
-            if dot(palm_vec, tip_vec) > 0:
+        # Four fingers: extended if fingertip-to-PIP vector points away from palm
+        for mcp, pip, tip in [(5,6,8),(9,10,12),(13,14,16),(17,18,20)]:
+            if dot(sub(pt(mcp), pt(0)), sub(pt(tip), pt(pip))) > 0:
                 count += 1
 
         return count
 
-    def get_hand_center(self, lm_list: list) -> tuple[int, int]:
-        """Return the (x, y) centroid of all landmarks."""
+    def get_hand_center(self, lm_list: list) -> tuple:
         if not lm_list:
             return (0, 0)
-        xs = [p[1] for p in lm_list]
-        ys = [p[2] for p in lm_list]
-        return (sum(xs) // len(xs), sum(ys) // len(ys))
-
-
-# Lookup table: finger count → mode
-_FINGER_MODE_MAP = {
-    0: GestureMode.NONE,
-    1: GestureMode.ROTATE,
-    2: GestureMode.PAN,
-    3: GestureMode.COLOR,
-    4: GestureMode.SCALE,
-    5: GestureMode.SHAPE,
-}
+        return (
+            sum(p[1] for p in lm_list) // len(lm_list),
+            sum(p[2] for p in lm_list) // len(lm_list),
+        )
