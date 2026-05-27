@@ -1,0 +1,82 @@
+name: Smoke Test
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install headless deps
+        run: |
+          pip install --quiet pygame PyOpenGL opencv-python mediapipe numpy
+
+      - name: Headless smoke test
+        run: |
+          python - <<'EOF'
+          # Config
+          from config import Config
+          c = Config()
+          assert c.get("display", "width") > 0, "config.width"
+          assert c.get("voice", "whisper_model") is not None, "config.voice"
+
+          # Scene
+          from scene import Scene, Hologram, Stroke
+          s = Scene()
+          h = s.add("arc_reactor")
+          assert h is not None
+          assert s.active().name == "arc_reactor"
+          s.add("dna_helix")
+          s.focus("dna_helix")
+          assert s.active().name == "dna_helix"
+          s.update(0.5)
+          s.remove("dna_helix")
+          s.update(2.0)
+          assert s.active().name == "arc_reactor"
+
+          # Name aliases
+          assert s.resolve_name("arc reactor") == "arc_reactor"
+          assert s.resolve_name("helix") == "dna_helix"
+          assert s.resolve_name("buckyball") == "geodesic"
+
+          # Gesture engine
+          from gesture_engine import GestureEngine, GestureMode
+          e = GestureEngine()
+          assert GestureMode.ORBIT != GestureMode.PAN != GestureMode.SCALE
+
+          # OBJ parser
+          from utils import parse_obj_content, load_obj
+          verts, faces = parse_obj_content("v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n")
+          assert len(verts) == 3 and len(faces) == 1, "obj parse"
+
+          # OBJ quad fan-triangulation
+          verts2, faces2 = parse_obj_content("v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nf 1 2 3 4\n")
+          assert len(faces2) == 2, "quad fan-triangulation"
+
+          # Sketch
+          from sketch import SketchController
+          sk = SketchController(1200, 900)
+          assert sk.get_preview() == []
+
+          # Voice grammar matcher
+          from voice import _fuzzy_command
+          cmd, args = _fuzzy_command("add the helix")
+          assert cmd == "add", f"expected 'add', got '{cmd}'"
+          assert args == ["dna_helix"], f"expected ['dna_helix'], got {args}"
+
+          cmd2, _ = _fuzzy_command("annotate")
+          assert cmd2 == "annotate", f"expected 'annotate', got '{cmd2}'"
+
+          cmd3, _ = _fuzzy_command("reset view")
+          assert cmd3 == "reset", f"expected 'reset', got '{cmd3}'"
+
+          print("ALL SMOKE TESTS PASSED")
+          EOF
