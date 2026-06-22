@@ -18,13 +18,13 @@ if ! command -v $PYTHON_CMD &> /dev/null; then
 fi
 echo ">> Python: $PYTHON_CMD ($(${PYTHON_CMD} --version 2>&1))"
 
-# Create virtual environment if needed
-if [ ! -d "venv" ]; then
+# Create virtual environment if missing or broken (e.g. Python was upgraded/removed)
+VENV_PYTHON="$DIR/venv/bin/python"
+if [ ! -x "$VENV_PYTHON" ] || ! "$VENV_PYTHON" --version &> /dev/null; then
     echo ">> Creating virtual environment..."
+    rm -rf venv
     $PYTHON_CMD -m venv venv
 fi
-
-VENV_PYTHON="$DIR/venv/bin/python"
 
 # Install / sync dependencies (pip is smart about skipping up-to-date packages)
 echo ">> Syncing dependencies..."
